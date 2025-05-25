@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Guide to Digital Portfolio Platforms</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <!-- Visualization & Content Choices: 
+        - Platform Data (List of platforms, features, costs): Presented as interactive cards in a grid. Users can filter these cards. Goal: Easy comparison and targeted search. Method: HTML/Tailwind cards, JS for filtering.
+        - Platform Costs: Visualized using a bar chart ('Starting Premium Costs'). Goal: Quick visual comparison of financial commitment. Interaction: Hover for tooltips. Method: Chart.js.
+        - Platform Categories ('Best For'): Visualized using a bar chart ('Platform Coverage by Category'). Goal: Show how many platforms cater to common categories. Interaction: Hover for tooltips. Method: Chart.js.
+        - LLM-powered "Generate Portfolio Tips": Button on each platform card. Goal: Provide contextual, platform-specific portfolio building advice. Interaction: Click to generate and display in a modal. Method: Gemini API call.
+        - LLM-powered "Suggest Project Ideas for My Field": Button in recommendations section. Goal: Offer creative project ideas based on selected academic field. Interaction: Click to generate and display in a modal. Method: Gemini API call.
+        - Live Animated Background: Enhanced with twinkling stars and subtle, slow-moving glowing orbs. Goal: Enhance aesthetic appeal and provide a sense of depth and dynamism without distraction. Method: HTML Canvas and Vanilla JS for animation.
+        - All textual content from the report is integrated into platform cards or section introductions.
+    -->
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .chart-container { position: relative; width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; height: 300px; max-height: 400px; }
+        @media (min-width: 768px) { .chart-container { height: 350px; } }
+        .smooth-scroll { scroll-behavior: smooth; }
+        .card-feature-list { max-height: 70px; overflow: hidden; transition: max-height 0.3s ease-out; }
+        .card-feature-list.expanded { max-height: 500px; }
+
+        /* Modal styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+            position: relative;
+        }
+        .modal-close-btn {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #64748b; /* slate-500 */
+        }
+        .modal-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100px;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #3b82f6; /* blue-500 */
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Star Canvas Background */
+        #starCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; /* Ensure it's behind content */
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-slate-50 text-slate-700 smooth-scroll">
+    <canvas id="starCanvas"></canvas>
+
+    <header class="bg-white shadow-md sticky top-0 z-50">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-center">
+            <h1 class="text-2xl sm:text-3xl font-bold text-sky-700 mb-2 sm:mb-0">Digital Portfolio Platforms Guide</h1>
+            <nav>
+                <ul class="flex space-x-3 sm:space-x-4 text-sm sm:text-base">
+                    <li><a href="#filters" class="text-slate-600 hover:text-sky-600 font-medium">Filters</a></li>
+                    <li><a href="#platforms" class="text-slate-600 hover:text-sky-600 font-medium">Platforms</a></li>
+                    <li><a href="#insights" class="text-slate-600 hover:text-sky-600 font-medium">Insights</a></li>
+                    <li><a href="#recommendations" class="text-slate-600 hover:text-sky-600 font-medium">Recommendations</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <section id="intro" class="mb-12 p-6 bg-white rounded-lg shadow">
+            <h2 class="text-2xl font-semibold text-slate-800 mb-3">Welcome!</h2>
+            <p class="text-slate-600 leading-relaxed">
+                In today's competitive landscape, a compelling digital portfolio is your essential tool for showcasing skills, projects, and achievements. This interactive guide helps you navigate the top platforms students can leverage to build their online presence. Explore features, costs, and find recommendations tailored to your field. Use the filters and insights below to find the perfect platform for your needs.
+            </p>
+        </section>
+
+        <section id="filters" class="mb-12 p-6 bg-white rounded-lg shadow">
+            <h2 class="text-2xl font-semibold text-slate-800 mb-4">Filter Platforms</h2>
+            <p class="text-slate-600 mb-6">
+                Use the filters below to narrow down the list of portfolio platforms based on their suitability for different fields or their pricing models. This will help you quickly identify platforms that align with your specific requirements.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <label for="categoryFilter" class="block text-sm font-medium text-slate-700 mb-1">Filter by "Best For" Category:</label>
+                    <select id="categoryFilter" class="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500">
+                        <option value="all">All Categories</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="costFilter" class="block text-sm font-medium text-slate-700 mb-1">Filter by Cost:</label>
+                    <select id="costFilter" class="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500">
+                        <option value="all">All Costs</option>
+                        <option value="free">Has Free Plan</option>
+                        <option value="paid">Paid Only (No Free Plan)</option>
+                        <option value="completely_free">Completely Free</option>
+                    </select>
+                </div>
+            </div>
+            <button id="resetFilters" class="bg-sky-600 hover:bg-sky-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition duration-150">Reset Filters</button>
+        </section>
+
+        <section id="platforms" class="mb-12">
+            <h2 class="text-2xl font-semibold text-slate-800 mb-2 p-6 bg-white rounded-t-lg shadow">Available Platforms</h2>
+            <p class="text-slate-600 mb-6 p-6 bg-white rounded-b-lg shadow -mt-1 pt-0">
+                Below is a list of digital portfolio platforms. Each card provides details on who the platform is best for, its key features, and cost. Use the filters above to refine this list. Click "Show More" to see all features for a platform.
+            </p>
+            <div id="platformsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            </div>
+            <p id="noResultsMessage" class="hidden text-center text-slate-500 py-8 text-lg">No platforms match your current filter selection.</p>
+        </section>
+
+        <section id="insights" class="mb-12 p-6 bg-white rounded-lg shadow">
+            <h2 class="text-2xl font-semibold text-slate-800 mb-4">Visual Insights</h2>
+            <p class="text-slate-600 mb-8">
+                These charts provide a visual summary of the portfolio platforms. The first chart compares the starting costs for premium plans, helping you gauge potential expenses. The second chart shows how many platforms cater to common categories like "Creative Fields" or "Tech Students", giving an overview of their focus areas.
+            </p>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div>
+                    <h3 class="text-xl font-semibold text-slate-800 mb-3 text-center">Starting Premium Costs ($/month)</h3>
+                    <div class="chart-container bg-slate-50 p-4 rounded-lg">
+                        <canvas id="costChart"></canvas>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-xl font-semibold text-slate-800 mb-3 text-center">Platform Coverage by Category</h3>
+                    <div class="chart-container bg-slate-50 p-4 rounded-lg">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="recommendations" class="p-6 bg-white rounded-lg shadow">
+            <h2 class="text-2xl font-semibold text-slate-800 mb-4">Recommendations by Field</h2>
+            <p class="text-slate-600 mb-6">
+                Find platforms specifically recommended for your field of study or career interest. Clicking on a field below will filter the platform list above to show only the suggested options, making your search more targeted.
+            </p>
+            <div id="recommendationsContainer" class="flex flex-wrap gap-3 mb-6">
+            </div>
+            <button id="suggestProjectsBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition duration-150 flex items-center">
+                <span class="mr-2">✨</span>Suggest Project Ideas for My Field
+            </button>
+        </section>
+    </main>
+
+    <footer class="bg-slate-800 text-slate-300 text-center py-8 mt-12">
+        <p>&copy; 2025 Interactive Portfolio Guide. Information based on the provided report.</p>
+    </footer>
+
+    <div id="llmResponseModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="modal-close-btn" id="closeModalBtn">&times;</button>
+            <h3 id="modalTitle" class="text-xl font-bold text-slate-800 mb-4"></h3>
+            <div id="modalBody" class="text-slate-700 leading-relaxed">
+                <div class="modal-loading hidden">
+                    <div class="spinner"></div>
+                    <p class="mt-3 text-slate-600">Generating insights...</p>
+                </div>
+                <div id="modalContentText"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const platformsData = [
+            {
+                id: 'wix',
+                name: 'Wix',
+                bestFor: ['General use', 'Creative fields', 'Business students'],
+                features: ['Intuitive drag-and-drop editor', 'Customizable templates with modern design', 'Mobile-responsive', 'Built-in SEO tools', 'Comprehensive multimedia support (video, audio, graphics) to beautifully showcase diverse project types and creative work.'],
+                cost: { freePlan: true, freePlanDetails: 'Includes Wix branding', premiumFrom: 16, premiumDetails: 'Premium plans from $16/month' },
+            },
+            {
+                id: 'squarespace',
+                name: 'Squarespace',
+                bestFor: ['Creative professionals', 'Marketing', 'Business students'],
+                features: ['Sleek, professional templates', 'Mobile-optimized and responsive design', 'Built-in analytics and eCommerce integration'],
+                cost: { freePlan: false, trialDays: 14, premiumFrom: 16, premiumDetails: 'Starts at $16/month (billed annually). 14-day free trial.' },
+            },
+            {
+                id: 'github',
+                name: 'GitHub Pages',
+                bestFor: ['Tech students', 'Computer Science', 'Software Engineering'],
+                features: ['Free static website hosting', 'Supports HTML, CSS, JavaScript', 'Full GitHub integration for version control', 'Ideal for hosting personal projects and code samples'],
+                cost: { freePlan: true, completelyFree: true, premiumFrom: 0, premiumDetails: 'Free' },
+            },
+            {
+                id: 'behance',
+                name: 'Behance',
+                bestFor: ['Graphic designers', 'Illustrators', 'Photographers', 'UX/UI designers'],
+                features: ['Portfolio platform tailored to creative professionals', 'High-quality visual display', 'Integration with Adobe Creative Cloud', 'Social media-like interface for sharing and feedback'],
+                cost: { freePlan: true, completelyFree: true, premiumFrom: 0, premiumDetails: 'Free. Adobe Portfolio integration with Adobe CC subscription.' },
+            },
+            {
+                id: 'dribbble',
+                name: 'Dribbble',
+                bestFor: ['UI/UX designers', 'Illustrators', 'Motion designers'],
+                features: ['Community-based platform', 'Emphasis on visual quality and micro-interactions', 'Job board for freelance and full-time opportunities'],
+                cost: { freePlan: true, freePlanDetails: 'Basic plan', premiumFrom: 5, premiumDetails: 'Pro plan from $5/month' },
+            },
+            {
+                id: 'canva',
+                name: 'Canva',
+                bestFor: ['Business', 'General', 'Creative', 'Marketing students'],
+                features: ['Easy drag-and-drop design', 'Portfolio templates available', 'Supports images, videos, links, PDFs', 'Collaboration and sharing features'],
+                cost: { freePlan: true, premiumFrom: 12.99, premiumDetails: 'Pro plan from $12.99/month' },
+            },
+            {
+                id: 'wordpress',
+                name: 'WordPress',
+                bestFor: ['Bloggers', 'Tech-savvy students', 'Interdisciplinary portfolios'],
+                features: ['Highly customizable with themes & plugins', 'Supports blogs, galleries, forms, code embeds', 'Can be used as both a personal website and portfolio'],
+                cost: { freePlan: true, freePlanDetails: 'Via WordPress.com (with limitations)', premiumFrom: 4, premiumDetails: 'Premium from $4/month. WordPress.org version requires separate hosting.' },
+            },
+            {
+                id: 'notion',
+                name: 'Notion',
+                bestFor: ['General use', 'Tech', 'Business', 'Interdisciplinary students'],
+                features: ['Modular workspace — combines documents, databases, calendars', 'Customizable portfolio templates', 'Easy sharing with link-based access', 'Great for documenting case studies, resume, projects, and wikis'],
+                cost: { freePlan: true, premiumFrom: 8, premiumDetails: 'Plus plan from $8/month' },
+            }
+        ];
+
+        const recommendationsByField = [
+            { field: 'Computer Science / Tech', platforms: ['GitHub Pages', 'Wix', 'Notion'] },
+            { field: 'Graphic Design / UX', platforms: ['Behance', 'Dribbble', 'Wix', 'Squarespace'] },
+            { field: 'Business / Marketing', platforms: ['Squarespace', 'Canva', 'Wix', 'Notion'] },
+            { field: 'General / Interdisciplinary', platforms: ['Wix', 'Notion', 'Canva', 'WordPress'] }
+        ];
+
+        const platformsGrid = document.getElementById('platformsGrid');
+        const categoryFilter = document.getElementById('categoryFilter');
+        const costFilter = document.getElementById('costFilter');
+        const resetFiltersButton = document.getElementById('resetFilters');
+        const recommendationsContainer = document.getElementById('recommendationsContainer');
+        const noResultsMessage = document.getElementById('noResultsMessage');
+        const suggestProjectsBtn = document.getElementById('suggestProjectsBtn');
+
+        const llmResponseModal = document.getElementById('llmResponseModal');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        const modalLoading = modalBody.querySelector('.modal-loading');
+        const modalContentText = document.getElementById('modalContentText');
+
+        let allCategories = [];
+        let activeRecommendationField = '';
+
+        const apiKey = "";
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+        function showModal(title, contentHtml) {
+            modalTitle.textContent = title;
+            modalContentText.innerHTML = contentHtml;
+            modalLoading.classList.add('hidden');
+            modalContentText.classList.remove('hidden');
+            llmResponseModal.classList.remove('hidden');
+        }
+
+        function showLoadingModal(title) {
+            modalTitle.textContent = title;
+            modalContentText.innerHTML = '';
+            modalContentText.classList.add('hidden');
+            modalLoading.classList.remove('hidden');
+            llmResponseModal.classList.remove('hidden');
+        }
+
+        function hideModal() {
+            llmResponseModal.classList.add('hidden');
+        }
+
+        async function callGeminiAPI(prompt) {
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+            const payload = { contents: chatHistory };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    return result.candidates[0].content.parts[0].text;
+                } else {
+                    console.error('Gemini API response structure unexpected:', result);
+                    return 'Sorry, I could not generate a response. Please try again.';
+                }
+            } catch (error) {
+                console.error('Error calling Gemini API:', error);
+                return 'An error occurred while connecting to the AI. Please check your network and try again.';
+            }
+        }
+
+        function formatCost(cost) {
+            if (cost.completelyFree) return '<span class="font-semibold text-green-600">Free</span>';
+            let costString = '';
+            if (cost.freePlan) {
+                costString += `<span class="font-semibold text-green-600">Free Plan Available</span> ${cost.freePlanDetails ? '(' + cost.freePlanDetails + ')' : ''}. `;
+            }
+            if (cost.premiumFrom > 0) {
+                costString += `Premium from <span class="font-semibold">$${cost.premiumFrom}/month</span>.`;
+            } else if (!cost.freePlan && cost.trialDays) {
+                 costString += `Starts with a ${cost.trialDays}-day free trial. Premium from <span class="font-semibold">$${cost.premiumFrom}/month</span>.`;
+            }
+             if (cost.premiumDetails && !(cost.premiumFrom > 0) && !cost.completelyFree && !cost.freePlan) {
+                costString += cost.premiumDetails;
+            }
+            return costString || 'Cost details unavailable.';
+        }
+        
+        function renderPlatformCard(platform) {
+            const card = document.createElement('div');
+            card.className = 'bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col';
+            card.innerHTML = `
+                <h3 class="text-xl font-bold text-sky-700 mb-2">${platform.name}</h3>
+                <p class="text-sm text-slate-500 mb-1"><span class="font-semibold">Best For:</span> ${platform.bestFor.join(', ')}</p>
+                <div class="mb-3 flex-grow">
+                    <p class="text-sm font-semibold text-slate-600 mb-1">Key Features:</p>
+                    <ul class="list-disc list-inside text-sm text-slate-600 space-y-1 card-feature-list">
+                        ${platform.features.map(f => `<li>${f}</li>`).join('')}
+                    </ul>
+                    ${platform.features.length > 3 ? '<button class="text-xs text-sky-600 hover:text-sky-800 mt-1 toggle-features-btn">Show More</button>' : ''}
+                </div>
+                <div class="mt-auto pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:justify-between sm:items-center">
+                    <p class="text-sm text-slate-500 mb-2 sm:mb-0"><span class="font-semibold">Cost:</span> ${formatCost(platform.cost)}</p>
+                    <button class="bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium py-1 px-3 rounded-md shadow-sm transition duration-150 generate-tips-btn flex items-center justify-center">
+                        <span class="mr-1">✨</span>Tips
+                    </button>
+                </div>
+            `;
+            
+            const toggleBtn = card.querySelector('.toggle-features-btn');
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const featureList = card.querySelector('.card-feature-list');
+                    featureList.classList.toggle('expanded');
+                    toggleBtn.textContent = featureList.classList.contains('expanded') ? 'Show Less' : 'Show More';
+                });
+            }
+
+            const generateTipsBtn = card.querySelector('.generate-tips-btn');
+            generateTipsBtn.addEventListener('click', async () => {
+                showLoadingModal(`Generating Portfolio Tips for ${platform.name}`);
+                const prompt = `As an expert in digital portfolios, provide 3-5 concise and actionable tips for a student building a portfolio on ${platform.name}, considering its key features: ${platform.features.join(', ')}. Focus on how to best leverage this platform. Format as a bulleted list.`;
+                const response = await callGeminiAPI(prompt);
+                showModal(`Portfolio Tips for ${platform.name}`, response);
+            });
+
+            return card;
+        }
+
+        function displayPlatforms(filteredPlatforms) {
+            platformsGrid.innerHTML = '';
+            if (filteredPlatforms.length === 0) {
+                noResultsMessage.classList.remove('hidden');
+            } else {
+                noResultsMessage.classList.add('hidden');
+                filteredPlatforms.forEach(platform => {
+                    platformsGrid.appendChild(renderPlatformCard(platform));
+                });
+            }
+        }
+
+        function populateFilters() {
+            const categories = new Set();
+            platformsData.forEach(p => p.bestFor.forEach(bf => categories.add(bf.trim())));
+            allCategories = Array.from(categories).sort();
+            allCategories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                categoryFilter.appendChild(option);
+            });
+        }
+
+        function filterAndDisplay() {
+            const selectedCategory = categoryFilter.value;
+            const selectedCost = costFilter.value;
+
+            const filtered = platformsData.filter(platform => {
+                const categoryMatch = selectedCategory === 'all' || platform.bestFor.includes(selectedCategory);
+                
+                let costMatch = false;
+                if (selectedCost === 'all') {
+                    costMatch = true;
+                } else if (selectedCost === 'free') {
+                    costMatch = platform.cost.freePlan || platform.cost.completelyFree;
+                } else if (selectedCost === 'paid') {
+                    costMatch = !platform.cost.freePlan && !platform.cost.completelyFree && platform.cost.premiumFrom > 0;
+                } else if (selectedCost === 'completely_free') {
+                    costMatch = platform.cost.completelyFree;
+                }
+                return categoryMatch && costMatch;
+            });
+            displayPlatforms(filtered);
+        }
+        
+        function resetAllFilters() {
+            categoryFilter.value = 'all';
+            costFilter.value = 'all';
+            filterAndDisplay();
+            // Reset active state for recommendation buttons
+            document.querySelectorAll('#recommendationsContainer button:not(#suggestProjectsBtn)').forEach(btn => {
+                btn.classList.remove('bg-sky-700');
+                btn.classList.add('bg-sky-500', 'hover:bg-sky-600');
+            });
+            activeRecommendationField = ''; // Clear active field
+        }
+
+        function renderCharts() {
+            const costChartCtx = document.getElementById('costChart').getContext('2d');
+            const platformsWithPremium = platformsData.filter(p => p.cost.premiumFrom > 0 && !p.cost.completelyFree);
+            new Chart(costChartCtx, {
+                type: 'bar',
+                data: {
+                    labels: platformsWithPremium.map(p => p.name),
+                    datasets: [{
+                        label: 'Starting Premium Cost ($/month)',
+                        data: platformsWithPremium.map(p => p.cost.premiumFrom),
+                        backgroundColor: 'rgba(56, 189, 248, 0.6)', // sky-400
+                        borderColor: 'rgba(2, 132, 199, 1)', // sky-600
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true } },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) { label += ': '; }
+                                    if (context.parsed.y !== null) {
+                                        label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                                    }
+                                    return label;
+                                }
+                            }
+                        },
+                        legend: { display: false }
+                    }
+                }
+            });
+
+            const categoryCounts = {};
+            allCategories.forEach(cat => categoryCounts[cat] = 0);
+            platformsData.forEach(p => {
+                p.bestFor.forEach(bf => {
+                    if (categoryCounts.hasOwnProperty(bf.trim())) {
+                        categoryCounts[bf.trim()]++;
+                    }
+                });
+            });
+            
+            const sortedCategoriesByCount = Object.entries(categoryCounts)
+                .sort(([,a],[,b]) => b-a)
+                .slice(0, 10); // Show top 10 categories for clarity
+
+            const categoryChartCtx = document.getElementById('categoryChart').getContext('2d');
+            new Chart(categoryChartCtx, {
+                type: 'bar',
+                data: {
+                    labels: sortedCategoriesByCount.map(item => item[0]),
+                    datasets: [{
+                        label: 'Number of Platforms',
+                        data: sortedCategoriesByCount.map(item => item[1]),
+                        backgroundColor: 'rgba(129, 140, 248, 0.6)', // indigo-400
+                        borderColor: 'rgba(79, 70, 229, 1)', // indigo-600
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y', // Horizontal bar chart for better readability of labels
+                     scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function renderRecommendations() {
+            recommendationsByField.forEach(rec => {
+                const button = document.createElement('button');
+                button.className = 'bg-sky-500 hover:bg-sky-600 text-white font-medium py-2 px-4 rounded-md shadow-sm transition duration-150';
+                button.textContent = rec.field;
+                button.addEventListener('click', () => {
+                    // Reset other filters for clarity
+                    categoryFilter.value = 'all';
+                    costFilter.value = 'all';
+                    
+                    const recommendedPlatformNames = rec.platforms;
+                    const recommendedPlatformsData = platformsData.filter(p => recommendedPlatformNames.includes(p.name));
+                    displayPlatforms(recommendedPlatformsData);
+
+                    // Visual feedback for active recommendation
+                    document.querySelectorAll('#recommendationsContainer button:not(#suggestProjectsBtn)').forEach(btn => {
+                        btn.classList.remove('bg-sky-700');
+                        btn.classList.add('bg-sky-500', 'hover:bg-sky-600');
+                    });
+                    button.classList.remove('bg-sky-500', 'hover:bg-sky-600');
+                    button.classList.add('bg-sky-700');
+                    activeRecommendationField = rec.field; // Set active field
+                });
+                recommendationsContainer.appendChild(button);
+            });
+        }
+
+        // Star background animation logic
+        const starCanvas = document.getElementById('starCanvas');
+        const ctx = starCanvas.getContext('2d');
+        let stars = [];
+        const numStars = 100;
+        let backgroundGlows = [];
+        const numGlows = 3;
+
+        function resizeCanvas() {
+            starCanvas.width = window.innerWidth;
+            starCanvas.height = window.innerHeight;
+            initStars();
+            initGlows();
+        }
+
+        function initStars() {
+            stars = [];
+            for (let i = 0; i < numStars; i++) {
+                stars.push({
+                    x: Math.random() * starCanvas.width,
+                    y: Math.random() * starCanvas.height,
+                    radius: Math.random() * 1.5 + 0.5, // 0.5 to 2.0
+                    baseOpacity: Math.random() * 0.7 + 0.3, // 0.3 to 1.0
+                    opacity: 0, // Current opacity, will be animated
+                    velocity: Math.random() * 0.2 + 0.05, // 0.05 to 0.25
+                    twinkleOffset: Math.random() * Math.PI * 2, // For sine wave twinkling
+                    twinkleSpeed: Math.random() * 0.05 + 0.01 // Speed of twinkle
+                });
+            }
+        }
+
+        function initGlows() {
+            backgroundGlows = [];
+            for (let i = 0; i < numGlows; i++) {
+                backgroundGlows.push({
+                    x: Math.random() * starCanvas.width,
+                    y: Math.random() * starCanvas.height,
+                    radius: Math.random() * 150 + 100, // Large radius for soft glow
+                    color: i % 2 === 0 ? 'rgba(191, 219, 254, 0.05)' : 'rgba(224, 242, 254, 0.05)', // light blue/gray with very low opacity
+                    velocity: { x: (Math.random() - 0.5) * 0.1, y: (Math.random() - 0.5) * 0.1 }, // Very slow movement
+                    pulseOffset: Math.random() * Math.PI * 2,
+                    pulseSpeed: Math.random() * 0.005 + 0.001
+                });
+            }
+        }
+
+        function drawStars() {
+            stars.forEach(star => {
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(203, 213, 225, ${star.opacity})`; // slate-300 with varying opacity
+                ctx.fill();
+            });
+        }
+
+        function drawGlows() {
+            backgroundGlows.forEach(glow => {
+                const gradient = ctx.createRadialGradient(glow.x, glow.y, 0, glow.x, glow.y, glow.radius);
+                gradient.addColorStop(0, glow.color.replace('0.05', '0.1')); // Inner slightly brighter
+                gradient.addColorStop(1, glow.color); // Outer very faint
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, starCanvas.width, starCanvas.height);
+            });
+        }
+
+        function updateStars() {
+            stars.forEach(star => {
+                star.y += star.velocity;
+                star.opacity = star.baseOpacity * (0.5 + 0.5 * Math.sin(star.twinkleOffset)); // Twinkling effect
+                star.twinkleOffset += star.twinkleSpeed;
+
+                if (star.y - star.radius > starCanvas.height) {
+                    star.y = -star.radius; // Reset to top
+                    star.x = Math.random() * starCanvas.width; // New random x
+                    star.baseOpacity = Math.random() * 0.7 + 0.3; // Reset base opacity
+                    star.twinkleOffset = Math.random() * Math.PI * 2; // Reset twinkle offset
+                }
+            });
+        }
+
+        function updateGlows() {
+            backgroundGlows.forEach(glow => {
+                glow.x += glow.velocity.x;
+                glow.y += glow.velocity.y;
+
+                // Subtle pulsing of radius
+                glow.radius = (Math.sin(glow.pulseOffset) * 20 + 150) + 100; // Oscillate radius
+                glow.pulseOffset += glow.pulseSpeed;
+
+                // Loop glows if they go off screen
+                if (glow.x - glow.radius > starCanvas.width) glow.x = -glow.radius;
+                if (glow.x + glow.radius < 0) glow.x = starCanvas.width + glow.radius;
+                if (glow.y - glow.radius > starCanvas.height) glow.y = -glow.radius;
+                if (glow.y + glow.radius < 0) glow.y = starCanvas.height + glow.radius;
+            });
+        }
+
+        function animateBackground() {
+            ctx.clearRect(0, 0, starCanvas.width, starCanvas.height);
+            drawGlows(); // Draw glows first, they are background elements
+            drawStars(); // Draw stars on top of glows
+            updateStars();
+            updateGlows();
+            requestAnimationFrame(animateBackground);
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            populateFilters();
+            displayPlatforms(platformsData);
+            renderCharts();
+            renderRecommendations();
+
+            categoryFilter.addEventListener('change', filterAndDisplay);
+            costFilter.addEventListener('change', filterAndDisplay);
+            resetFiltersButton.addEventListener('click', resetAllFilters);
+            closeModalBtn.addEventListener('click', hideModal);
+
+            suggestProjectsBtn.addEventListener('click', async () => {
+                if (!activeRecommendationField) {
+                    showModal('No Field Selected', 'Please select a field from the recommendations above first, or filter by a category, to get relevant project ideas.');
+                    return;
+                }
+                showLoadingModal(`Suggesting Project Ideas for ${activeRecommendationField}`);
+                const prompt = `As an expert in career development, suggest 5-7 creative and impactful portfolio project ideas for a student in ${activeRecommendationField}. These projects should be suitable for showcasing skills to potential employers or academic institutions. Format as a bulleted list.`;
+                const response = await callGeminiAPI(prompt);
+                showModal(`Project Ideas for ${activeRecommendationField}`, response);
+            });
+
+            // Initialize and start background animation
+            resizeCanvas(); // Set initial size and populate stars/glows
+            animateBackground(); // Start the animation loop
+            window.addEventListener('resize', resizeCanvas); // Handle resize
+        });
+    </script>
+</body>
+</html>
